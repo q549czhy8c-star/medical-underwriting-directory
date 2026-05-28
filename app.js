@@ -25,6 +25,7 @@ const i18n = {
     medicalContext: "Medical Context",
     riskConcern: "Risk Concern",
     offers: "Life / CI Offers",
+    ratingDetails: "Rating Details",
     addOffer: "Add Offer",
     manualEdit: "Manual Underwriting Update",
     requirements: "Requirements",
@@ -80,6 +81,7 @@ const i18n = {
     medicalContext: "醫學背景",
     riskConcern: "風險關注",
     offers: "Life / CI Offer",
+    ratingDetails: "評級詳情",
     addOffer: "新增 Offer",
     manualEdit: "手動核保更新",
     requirements: "核保要求",
@@ -333,11 +335,7 @@ function openRecord(id) {
     infoBox(t("publicSources"), sourceBoxes.map((source) => `${source.name}: ${source.url}`).join("\n") || t("sourceDisclaimer"), "compact-info")
   ].filter(Boolean).join("");
 
-  const primaryOffer = (record.offers || [])[0] || {};
-  $("#offerTable").innerHTML = [
-    infoBox(t("lifeRating"), primaryOffer.life || extractDecisionSection(record.underwriting_rules.decisions_reference, "Life Rating:"), "long-info"),
-    infoBox(t("ciRating"), primaryOffer.ci || extractDecisionSection(record.underwriting_rules.decisions_reference, "CI Rating:"), "long-info")
-  ].join("");
+  $("#offerTable").innerHTML = renderRatingDetails(record);
 
   $("#requirementsInput").value = record.underwriting_rules.requirements || "";
   $("#decisionInput").value = record.underwriting_rules.decisions_reference || "";
@@ -482,6 +480,7 @@ function normalizeImportedRecord(row) {
         ai_suggestions: row.underwriting_rules?.ai_suggestions || row.ai_suggestions || ""
       },
       offers: normalizeOffers(row.offers, row),
+      raw_sections: row.raw_sections || {},
       updated_by: row.updated_by || "Human",
       last_updated: row.last_updated || now,
       private_meta: row.private_meta || {}
@@ -567,6 +566,54 @@ function renderAudit() {
 
 function infoBox(label, value, className = "") {
   return `<div class="info-box ${className}"><strong>${escapeHtml(label)}</strong><p class="muted">${escapeHtml(value || "-").replace(/\n/g, "<br>")}</p></div>`;
+}
+
+function renderRatingDetails(record) {
+  const primaryOffer = (record.offers || [])[0] || {};
+  const lifeFallback = primaryOffer.life || extractDecisionSection(record.underwriting_rules.decisions_reference, "Life Rating:");
+  const ciFallback = primaryOffer.ci || extractDecisionSection(record.underwriting_rules.decisions_reference, "CI Rating:");
+  const lifeTables = record.raw_sections?.life_rating?.tables || [];
+  const ciTables = record.raw_sections?.ci_rating?.tables || [];
+
+  return `
+    <div class="rating-panel">
+      <div class="rating-panel-heading">
+        <h4>${escapeHtml(t("lifeRating"))}</h4>
+      </div>
+      ${lifeTables.length ? renderManualTables(lifeTables) : infoBox(t("lifeRating"), lifeFallback, "long-info")}
+    </div>
+    <div class="rating-panel">
+      <div class="rating-panel-heading">
+        <h4>${escapeHtml(t("ciRating"))}</h4>
+      </div>
+      ${ciTables.length ? renderManualTables(ciTables) : infoBox(t("ciRating"), ciFallback, "long-info")}
+    </div>
+  `;
+}
+
+function renderManualTables(tables) {
+  return tables.map((table) => {
+    const rows = (table.rows || []).filter((row) => row.some((cell) => String(cell || "").trim()));
+    if (!rows.length) return "";
+    const [head, ...body] = rows;
+    const hasHeader = head.length > 1 && head.slice(1).some(Boolean);
+    const headerHtml = hasHeader ? `<thead><tr>${head.map((cell) => `<th>${escapeHtml(cell || "")}</th>`).join("")}</tr></thead>` : "";
+    const bodyRows = hasHeader ? body : rows;
+    return `
+      <div class="manual-table-wrap">
+        <table class="manual-rating-table">
+          ${headerHtml}
+          <tbody>
+            ${bodyRows.map((row) => `
+              <tr>
+                ${row.map((cell, index) => `<td class="${index === 0 ? "rating-condition" : ""}">${escapeHtml(cell || "")}</td>`).join("")}
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }).join("");
 }
 
 function setOptions(select, options, selected) {

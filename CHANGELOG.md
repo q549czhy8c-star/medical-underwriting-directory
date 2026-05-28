@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 - 2026-05-28
+
+- Render private Life and CI rating details as manual-style tables in the illness popup when extracted table rows are available.
+- Preserve raw extracted rating sections during private JSON import.
+- Regenerated the private Hannover app import file locally with raw Life/CI table rows.
+
 ## 0.1.1 - 2026-05-28
 
 - Fixed private JSON imports so nested app-schema fields preserve risk information, underwriting rules, offers, and private metadata.
