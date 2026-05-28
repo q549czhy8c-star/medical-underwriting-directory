@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3 - 2026-05-28
+
+- Added a private import builder that turns extracted reinsurer manual text into focused risk points, treatment notes, underwriting requirements, and rating table data.
+- Regenerated the Hannover private app import locally so risk information and requirements are no longer duplicated raw text.
+
 ## 0.1.2 - 2026-05-28
 
 - Render private Life and CI rating details as manual-style tables in the illness popup when extracted table rows are available.
