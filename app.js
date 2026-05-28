@@ -29,6 +29,8 @@ const i18n = {
     manualEdit: "Manual Underwriting Update",
     requirements: "Requirements",
     decisionReference: "Decision Reference",
+    lifeRating: "Life Rating",
+    ciRating: "CI Rating",
     aiSuggestion: "AI Suggestion Holding Area",
     updatedBy: "Updated By",
     close: "Close",
@@ -52,7 +54,9 @@ const i18n = {
     uploaded: "Uploaded private file",
     cleared: "Cleared private vault",
     created: "Created local diagnosis",
-    sourceDisclaimer: "Public sources support risk context only; reinsurer manuals remain private and must be uploaded locally."
+    sourceDisclaimer: "Public sources support risk context only; reinsurer manuals remain private and must be uploaded locally.",
+    privateManualNotice: "Private manual source text. Chinese translation is not generated automatically yet.",
+    sourceDetails: "Source Details"
   },
   zh: {
     productEyebrow: "醫療核保",
@@ -80,6 +84,8 @@ const i18n = {
     manualEdit: "手動核保更新",
     requirements: "核保要求",
     decisionReference: "核保結果參考",
+    lifeRating: "Life 評級",
+    ciRating: "CI 評級",
     aiSuggestion: "AI 建議暫存區",
     updatedBy: "更新者",
     close: "關閉",
@@ -103,7 +109,9 @@ const i18n = {
     uploaded: "已上傳私有檔案",
     cleared: "已清除私有資料",
     created: "已新增本地疾病",
-    sourceDisclaimer: "公開來源只支援風險背景；reinsurer manual 仍屬私有，必須以本地上傳方式處理。"
+    sourceDisclaimer: "公開來源只支援風險背景；reinsurer manual 仍屬私有，必須以本地上傳方式處理。",
+    privateManualNotice: "私有 manual 原文內容。中文翻譯尚未自動生成。",
+    sourceDetails: "來源資料"
   }
 };
 
@@ -120,6 +128,7 @@ const optionLabels = {
     female: { en: "Female", zh: "女" }
   },
   system: {
+    medical_manual: { en: "Manual Extract", zh: "Manual 摘錄" },
     cardiovascular: { en: "Cardiovascular", zh: "心血管" },
     endocrine: { en: "Endocrine", zh: "內分泌" },
     respiratory: { en: "Respiratory", zh: "呼吸" },
@@ -287,10 +296,10 @@ function renderCards(records) {
           <span class="tag">${labelFor("gender", record.gender)}</span>
           <span class="tag">${humanize(record.severity)}</span>
         </div>
-        <p class="summary">${escapeHtml(localText(record.base_data.risks))}</p>
+        <p class="summary">${escapeHtml(compactText(localText(record.base_data.risks), 340))}</p>
         <div class="offer-preview">
           ${offers.slice(0, 2).map((offer) => `
-            <div><strong>${escapeHtml(offer.stage)}</strong><span>${escapeHtml(offer.life)} / ${escapeHtml(offer.ci)}</span></div>
+            <div><strong>${escapeHtml(offer.stage)}</strong><span>${escapeHtml(compactText(`${offer.life} / ${offer.ci}`, 160))}</span></div>
           `).join("")}
         </div>
       </button>
@@ -310,15 +319,24 @@ function openRecord(id) {
   $("#modalTitle").textContent = localText(record.diagnosis_name);
   $("#modalSourceType").textContent = `${t(record.source_type) || record.source_type} • ${new Date(record.last_updated).toLocaleString()}`;
 
+  const sourceMeta = sourceMetaText(record);
   $("#medicalContext").innerHTML = [
-    ["causes", record.base_data.causes],
-    ["treatments", record.base_data.treatments]
-  ].map(([label, value]) => infoBox(t(label), localText(value))).join("");
+    sourceMeta ? infoBox(t("sourceDetails"), sourceMeta, "compact-info") : "",
+    infoBox(t("causes"), localText(record.base_data.causes), "compact-info"),
+    infoBox(t("treatments"), localText(record.base_data.treatments), "compact-info")
+  ].filter(Boolean).join("");
 
   const sourceBoxes = (record.source_ids || []).map((id) => window.MUW_DATA.publicSources.find((source) => source.id === id)).filter(Boolean);
   $("#riskConcern").innerHTML = [
-    infoBox(t("risks"), localText(record.base_data.risks)),
-    infoBox(t("publicSources"), sourceBoxes.map((source) => `${source.name}: ${source.url}`).join("\n") || t("sourceDisclaimer"))
+    record.source_type === "private" ? infoBox(t("sourceNote"), t("privateManualNotice"), "compact-info") : "",
+    infoBox(t("risks"), localText(record.base_data.risks), "long-info"),
+    infoBox(t("publicSources"), sourceBoxes.map((source) => `${source.name}: ${source.url}`).join("\n") || t("sourceDisclaimer"), "compact-info")
+  ].filter(Boolean).join("");
+
+  const primaryOffer = (record.offers || [])[0] || {};
+  $("#offerTable").innerHTML = [
+    infoBox(t("lifeRating"), primaryOffer.life || extractDecisionSection(record.underwriting_rules.decisions_reference, "Life Rating:"), "long-info"),
+    infoBox(t("ciRating"), primaryOffer.ci || extractDecisionSection(record.underwriting_rules.decisions_reference, "CI Rating:"), "long-info")
   ].join("");
 
   $("#requirementsInput").value = record.underwriting_rules.requirements || "";
@@ -326,7 +344,6 @@ function openRecord(id) {
   $("#aiSuggestionInput").value = record.underwriting_rules.ai_suggestions || "";
   $("#updatedByInput").value = record.updated_by || "Human";
 
-  renderOfferRows(record.offers || []);
   $("#recordDialog").showModal();
 }
 
@@ -352,7 +369,8 @@ function saveSelectedRecord() {
   const record = state.records.find((item) => item.id === state.selectedId);
   if (!record) return;
 
-  const offers = Array.from(document.querySelectorAll("#offerTable .offer-row:not(.header)")).map((row) => ({
+  const offerRows = Array.from(document.querySelectorAll("#offerTable .offer-row:not(.header)"));
+  const offers = offerRows.map((row) => ({
     stage: row.querySelector('[data-offer="stage"]').value.trim(),
     life: row.querySelector('[data-offer="life"]').value.trim(),
     ci: row.querySelector('[data-offer="ci"]').value.trim(),
@@ -363,7 +381,7 @@ function saveSelectedRecord() {
   record.underwriting_rules.decisions_reference = $("#decisionInput").value.trim();
   record.underwriting_rules.ai_suggestions = $("#aiSuggestionInput").value.trim();
   record.updated_by = $("#updatedByInput").value.trim() || "Human";
-  record.offers = offers;
+  record.offers = offerRows.length ? offers : record.offers;
   record.last_updated = new Date().toISOString();
 
   persist();
@@ -443,28 +461,53 @@ function parsePrivateFile(name, text) {
 function normalizeImportedRecord(row) {
   const now = new Date().toISOString();
   const name = row.diagnosis_name || row.name || row.diagnosis || "Private Manual Extract";
+  if (row.base_data || row.underwriting_rules || row.private_meta) {
+    return {
+      id: row.id || `dx-private-${crypto.randomUUID()}`,
+      category_body_part: row.category_body_part || row.system || "medical_manual",
+      age_group: Array.isArray(row.age_group) ? row.age_group : String(row.age_group || "middle_age").split("|"),
+      gender: row.gender || "unisex",
+      severity: row.severity || row.stage || "manual_extract",
+      diagnosis_name: typeof name === "object" ? ensureLocalized(name) : toLocalized(name),
+      source_type: "private",
+      source_ids: Array.isArray(row.source_ids) ? row.source_ids : [],
+      base_data: {
+        causes: ensureLocalized(row.base_data?.causes || row.causes || ""),
+        risks: ensureLocalized(row.base_data?.risks || row.risks || row.risk_concern || ""),
+        treatments: ensureLocalized(row.base_data?.treatments || row.treatments || "")
+      },
+      underwriting_rules: {
+        requirements: row.underwriting_rules?.requirements || row.requirements || "",
+        decisions_reference: row.underwriting_rules?.decisions_reference || row.decisions_reference || row.decision || "",
+        ai_suggestions: row.underwriting_rules?.ai_suggestions || row.ai_suggestions || ""
+      },
+      offers: normalizeOffers(row.offers, row),
+      updated_by: row.updated_by || "Human",
+      last_updated: row.last_updated || now,
+      private_meta: row.private_meta || {}
+    };
+  }
+
   return {
     id: row.id || `dx-private-${crypto.randomUUID()}`,
     category_body_part: row.category_body_part || row.system || "cardiovascular",
     age_group: Array.isArray(row.age_group) ? row.age_group : String(row.age_group || "middle_age").split("|"),
     gender: row.gender || "unisex",
     severity: row.severity || row.stage || "manual_extract",
-    diagnosis_name: typeof name === "object" ? name : { en: name, zh: name },
+    diagnosis_name: typeof name === "object" ? ensureLocalized(name) : toLocalized(name),
     source_type: "private",
     source_ids: [],
     base_data: {
-      causes: toLocalized(row.causes || ""),
-      risks: toLocalized(row.risks || row.risk_concern || ""),
-      treatments: toLocalized(row.treatments || "")
+      causes: ensureLocalized(row.causes || ""),
+      risks: ensureLocalized(row.risks || row.risk_concern || ""),
+      treatments: ensureLocalized(row.treatments || "")
     },
     underwriting_rules: {
       requirements: row.requirements || "",
       decisions_reference: row.decisions_reference || row.decision || "",
       ai_suggestions: row.ai_suggestions || ""
     },
-    offers: row.offers || [
-      { stage: row.stage || "Manual extract", life: row.life || "", ci: row.ci || "", notes: row.notes || "" }
-    ],
+    offers: normalizeOffers(row.offers, row),
     updated_by: row.updated_by || "Human",
     last_updated: row.last_updated || now
   };
@@ -522,8 +565,8 @@ function renderAudit() {
   `).join("");
 }
 
-function infoBox(label, value) {
-  return `<div class="info-box"><strong>${escapeHtml(label)}</strong><p class="muted">${escapeHtml(value || "-").replace(/\n/g, "<br>")}</p></div>`;
+function infoBox(label, value, className = "") {
+  return `<div class="info-box ${className}"><strong>${escapeHtml(label)}</strong><p class="muted">${escapeHtml(value || "-").replace(/\n/g, "<br>")}</p></div>`;
 }
 
 function setOptions(select, options, selected) {
@@ -550,7 +593,54 @@ function localText(value) {
 }
 
 function toLocalized(value) {
-  return typeof value === "object" ? value : { en: value, zh: value };
+  return typeof value === "object" ? ensureLocalized(value) : { en: value, zh: value };
+}
+
+function ensureLocalized(value) {
+  if (!value) return { en: "", zh: "" };
+  if (typeof value === "string") return { en: value, zh: value };
+  const en = value.en || value.zh || "";
+  const zh = value.zh || value.en || "";
+  return { ...value, en, zh };
+}
+
+function normalizeOffers(offers, row) {
+  if (Array.isArray(offers) && offers.length) {
+    return offers.map((offer) => ({
+      stage: offer.stage || row.stage || "Manual extract",
+      life: offer.life || "",
+      ci: offer.ci || "",
+      notes: offer.notes || ""
+    }));
+  }
+  return [
+    { stage: row.stage || "Manual extract", life: row.life || "", ci: row.ci || "", notes: row.notes || "" }
+  ];
+}
+
+function compactText(value, maxLength) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) return text || "-";
+  return `${text.slice(0, maxLength - 1)}...`;
+}
+
+function sourceMetaText(record) {
+  if (!record.private_meta) return "";
+  return [
+    record.private_meta.reinsurer,
+    record.private_meta.source_system,
+    record.private_meta.display_name,
+    record.private_meta.option_value ? `option ${record.private_meta.option_value}` : ""
+  ].filter(Boolean).join("\n");
+}
+
+function extractDecisionSection(value, heading) {
+  const text = String(value || "");
+  const start = text.indexOf(heading);
+  if (start === -1) return "";
+  const rest = text.slice(start + heading.length).trim();
+  const nextHeading = heading === "Life Rating:" ? rest.indexOf("CI Rating:") : -1;
+  return nextHeading === -1 ? rest : rest.slice(0, nextHeading).trim();
 }
 
 function humanize(value) {
@@ -589,5 +679,10 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+
+window.MUW_TEST = {
+  normalizeImportedRecord,
+  parsePrivateFile
+};
 
 init();

@@ -335,6 +335,11 @@ textarea:focus {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
+  display: -webkit-box;
+  min-height: 84px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
 }
 
 .offer-preview {
@@ -347,6 +352,14 @@ textarea:focus {
   display: grid;
   grid-template-columns: 86px 1fr;
   gap: 8px;
+  min-width: 0;
+}
+
+.offer-preview span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .audit-list {
@@ -360,7 +373,7 @@ textarea:focus {
 }
 
 dialog {
-  width: min(1120px, calc(100vw - 28px));
+  width: min(1280px, calc(100vw - 28px));
   max-height: calc(100vh - 28px);
   padding: 0;
   border: 1px solid var(--line);
@@ -407,6 +420,25 @@ dialog::backdrop {
   background: var(--surface-2);
 }
 
+.info-box .muted {
+  white-space: pre-wrap;
+}
+
+.compact-info .muted {
+  max-height: 110px;
+  overflow: auto;
+}
+
+.long-info .muted {
+  max-height: 280px;
+  overflow: auto;
+  padding-right: 8px;
+}
+
+.offer-section .offer-table {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .info-box strong {
   display: block;
   margin-bottom: 4px;
@@ -449,7 +481,8 @@ dialog::backdrop {
 
   .source-strip,
   .modal-grid,
-  .form-grid {
+  .form-grid,
+  .offer-section .offer-table {
     grid-template-columns: 1fr;
   }
 }
