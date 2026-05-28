@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Medical Underwriting Directory</title>
+    <meta
+      name="description"
+      content="Interactive bilingual medical underwriting directory with private reinsurer manual upload support and versioned local edits."
+    >
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" data-i18n="productEyebrow">Medical Underwriting</p>
+          <h1 data-i18n="appTitle">Risk & Offer Directory</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-button" id="themeToggle" type="button" title="Toggle theme" aria-label="Toggle theme">◐</button>
+          <div class="segmented" aria-label="Language">
+            <button class="segment active" type="button" data-lang="en">EN</button>
+            <button class="segment" type="button" data-lang="zh">中</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="sidebar" aria-label="Filters">
+          <section class="panel">
+            <div class="panel-heading">
+              <h2 data-i18n="filters">Filters</h2>
+              <button class="text-button" id="resetFilters" type="button" data-i18n="reset">Reset</button>
+            </div>
+
+            <label class="field">
+              <span data-i18n="search">Search</span>
+              <input id="searchInput" type="search" autocomplete="off" data-i18n-placeholder="searchPlaceholder">
+            </label>
+
+            <label class="field">
+              <span data-i18n="ageGroup">Age Group</span>
+              <select id="ageFilter"></select>
+            </label>
+
+            <label class="field">
+              <span data-i18n="gender">Gender</span>
+              <select id="genderFilter"></select>
+            </label>
+
+            <label class="field">
+              <span data-i18n="bodySystem">Body System</span>
+              <select id="systemFilter"></select>
+            </label>
+
+            <label class="field">
+              <span data-i18n="severity">Severity / Stage</span>
+              <select id="severityFilter"></select>
+            </label>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h2 data-i18n="privateVault">Private Data Vault</h2>
+              <span class="status-pill" id="privateCount">0</span>
+            </div>
+            <p class="muted" data-i18n="privateVaultCopy">
+              Upload local reinsurer manual extracts as JSON, CSV, or Markdown. Files stay in browser storage unless you export them.
+            </p>
+            <label class="file-drop" for="privateUpload">
+              <span data-i18n="uploadPrivate">Upload private file</span>
+              <input id="privateUpload" type="file" accept=".json,.csv,.md,.markdown,.txt">
+            </label>
+            <div class="button-row">
+              <button id="exportData" class="primary-button" type="button" data-i18n="exportSnapshot">Export Snapshot</button>
+              <button id="clearPrivate" class="ghost-button" type="button" data-i18n="clearPrivate">Clear Private</button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h2 data-i18n="versioning">Versioning</h2>
+              <span class="status-pill" id="appVersion">v0.1.0</span>
+            </div>
+            <ol class="audit-list" id="auditList"></ol>
+          </section>
+        </aside>
+
+        <section class="content">
+          <div class="toolbar">
+            <div>
+              <p class="eyebrow" id="resultMeta">0 records</p>
+              <h2 data-i18n="directory">Diagnosis Directory</h2>
+            </div>
+            <button id="addRecord" class="primary-button" type="button" data-i18n="addDiagnosis">Add Diagnosis</button>
+          </div>
+
+          <div class="source-strip" id="sourceStrip"></div>
+          <div class="card-grid" id="cardGrid"></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="recordDialog">
+      <form method="dialog" class="modal">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow" id="modalSourceType">Public + Local</p>
+            <h2 id="modalTitle">Diagnosis</h2>
+          </div>
+          <button class="icon-button" value="cancel" type="submit" aria-label="Close">×</button>
+        </div>
+
+        <div class="modal-grid">
+          <section>
+            <h3 data-i18n="medicalContext">Medical Context</h3>
+            <div class="info-stack" id="medicalContext"></div>
+          </section>
+
+          <section>
+            <h3 data-i18n="riskConcern">Risk Concern</h3>
+            <div class="info-stack" id="riskConcern"></div>
+          </section>
+        </div>
+
+        <section class="offer-section">
+          <div class="panel-heading">
+            <h3 data-i18n="offers">Life / CI Offers</h3>
+            <button id="addOffer" class="ghost-button" type="button" data-i18n="addOffer">Add Offer</button>
+          </div>
+          <div class="offer-table" id="offerTable"></div>
+        </section>
+
+        <section class="edit-section">
+          <h3 data-i18n="manualEdit">Manual Underwriting Update</h3>
+          <div class="form-grid">
+            <label class="field">
+              <span data-i18n="requirements">Requirements</span>
+              <textarea id="requirementsInput" rows="5"></textarea>
+            </label>
+            <label class="field">
+              <span data-i18n="decisionReference">Decision Reference</span>
+              <textarea id="decisionInput" rows="5"></textarea>
+            </label>
+            <label class="field">
+              <span data-i18n="aiSuggestion">AI Suggestion Holding Area</span>
+              <textarea id="aiSuggestionInput" rows="4"></textarea>
+            </label>
+            <label class="field">
+              <span data-i18n="updatedBy">Updated By</span>
+              <input id="updatedByInput" type="text">
+            </label>
+          </div>
+        </section>
+
+        <menu class="modal-actions">
+          <button class="ghost-button" value="cancel" type="submit" data-i18n="close">Close</button>
+          <button id="saveRecord" class="primary-button" value="default" type="button" data-i18n="saveVersion">Save Version</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <template id="offerRowTemplate">
+      <div class="offer-row">
+        <input data-offer="stage" type="text" aria-label="Stage">
+        <input data-offer="life" type="text" aria-label="Life offer">
+        <input data-offer="ci" type="text" aria-label="CI offer">
+        <input data-offer="notes" type="text" aria-label="Notes">
+      </div>
+    </template>
+
+    <script src="data/sample-diagnoses.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
