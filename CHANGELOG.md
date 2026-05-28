@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 - 2026-05-28
+
+- Render underwriting requirements as a structured table in the illness popup.
+- Generate requirement table rows during private import builds for clearer grouping.
+- Keep the editable requirements textarea below the table for manual correction.
+
 ## 0.1.3 - 2026-05-28
 
 - Added a private import builder that turns extracted reinsurer manual text into focused risk points, treatment notes, underwriting requirements, and rating table data.

@@ -466,6 +466,18 @@ dialog::backdrop {
   overflow: auto;
 }
 
+.requirements-preview {
+  margin: 10px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.requirement-table-wrap {
+  max-height: 260px;
+}
+
 .manual-rating-table {
   width: 100%;
   min-width: 520px;
@@ -505,6 +517,15 @@ dialog::backdrop {
   width: 48%;
   color: var(--text);
   font-weight: 700;
+}
+
+.requirement-table .rating-condition {
+  width: 150px;
+}
+
+.requirement-table th:nth-child(3),
+.requirement-table td:nth-child(3) {
+  width: 180px;
 }
 
 .info-box strong {

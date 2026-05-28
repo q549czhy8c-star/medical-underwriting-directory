@@ -1,5 +1,5 @@
 window.MUW_DATA = {
-  appVersion: "0.1.3",
+  appVersion: "0.1.4",
   schemaVersion: "2026-05-28.1",
   publicSources: [
     {

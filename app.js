@@ -29,6 +29,9 @@ const i18n = {
     addOffer: "Add Offer",
     manualEdit: "Manual Underwriting Update",
     requirements: "Requirements",
+    requirementType: "Type",
+    requirementEvidence: "Evidence / Detail",
+    requirementNote: "Note",
     decisionReference: "Decision Reference",
     lifeRating: "Life Rating",
     ciRating: "CI Rating",
@@ -85,6 +88,9 @@ const i18n = {
     addOffer: "新增 Offer",
     manualEdit: "手動核保更新",
     requirements: "核保要求",
+    requirementType: "類別",
+    requirementEvidence: "證據 / 詳情",
+    requirementNote: "備註",
     decisionReference: "核保結果參考",
     lifeRating: "Life 評級",
     ciRating: "CI 評級",
@@ -342,7 +348,44 @@ function openRecord(id) {
   $("#aiSuggestionInput").value = record.underwriting_rules.ai_suggestions || "";
   $("#updatedByInput").value = record.updated_by || "Human";
 
+  renderRequirementsPreview(record);
   $("#recordDialog").showModal();
+}
+
+function renderRequirementsPreview(record) {
+  const editSection = document.querySelector(".edit-section");
+  if (!editSection) return;
+  editSection.querySelector(".requirements-preview")?.remove();
+  const rows = record.raw_sections?.requirements_table?.rows || requirementRowsFromText(record.underwriting_rules.requirements);
+  if (!rows.length) return;
+  const preview = document.createElement("div");
+  preview.className = "requirements-preview";
+  preview.innerHTML = `
+    <div class="rating-panel-heading">
+      <h4>${escapeHtml(t("requirements"))}</h4>
+    </div>
+    <div class="manual-table-wrap requirement-table-wrap">
+      <table class="manual-rating-table requirement-table">
+        <thead>
+          <tr>
+            <th>${escapeHtml(t("requirementType"))}</th>
+            <th>${escapeHtml(t("requirementEvidence"))}</th>
+            <th>${escapeHtml(t("requirementNote"))}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td class="rating-condition">${escapeHtml(row.type || t("requirementType"))}</td>
+              <td>${escapeHtml(row.evidence || "")}</td>
+              <td>${escapeHtml(row.note || "")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+  editSection.insertBefore(preview, editSection.querySelector(".form-grid"));
 }
 
 function renderOfferRows(offers) {
@@ -688,6 +731,35 @@ function extractDecisionSection(value, heading) {
   const rest = text.slice(start + heading.length).trim();
   const nextHeading = heading === "Life Rating:" ? rest.indexOf("CI Rating:") : -1;
   return nextHeading === -1 ? rest : rest.slice(0, nextHeading).trim();
+}
+
+function requirementRowsFromText(value) {
+  return String(value || "")
+    .split(/\n+/)
+    .map((line) => line.trim().replace(/^-\s*/, ""))
+    .filter(Boolean)
+    .map((line) => ({
+      type: classifyRequirementForDisplay(line),
+      evidence: line,
+      note: ""
+    }));
+}
+
+function classifyRequirementForDisplay(text) {
+  const lower = String(text || "").toLowerCase();
+  if (/doctor|gpr|physician|specialist|cardiolog|oncolog|report|letter/.test(lower)) {
+    return state.lang === "zh" ? "醫療報告" : "Medical report";
+  }
+  if (/ct|mri|scan|x ?ray|imaging|ultrasound|echo/.test(lower)) {
+    return state.lang === "zh" ? "影像或檢查" : "Imaging / investigation";
+  }
+  if (/fev|lung function|ecg|blood|urine|hba1c|lipid|lft|renal|test/.test(lower)) {
+    return state.lang === "zh" ? "化驗或測試" : "Test result";
+  }
+  if (/rating table|manual|refer|cmo|underwriter/.test(lower)) {
+    return state.lang === "zh" ? "核保覆核" : "Underwriter review";
+  }
+  return state.lang === "zh" ? "證據" : "Evidence";
 }
 
 function humanize(value) {

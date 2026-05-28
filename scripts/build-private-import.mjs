@@ -121,6 +121,36 @@ function extractRequirements(record) {
   return bullets || "- Refer to manual rating tables and obtain medical evidence as indicated.";
 }
 
+function classifyRequirement(text) {
+  const lower = text.toLowerCase();
+  if (/doctor|gpr|physician|specialist|cardiolog|oncolog|report|letter/.test(lower)) return "Medical report";
+  if (/ct|mri|scan|x ?ray|imaging|ultrasound|echo/.test(lower)) return "Imaging / investigation";
+  if (/fev|lung function|ecg|blood|urine|hba1c|lipid|lft|renal|test/.test(lower)) return "Test result";
+  if (/rating table|manual|refer|cmo|underwriter/.test(lower)) return "Underwriter review";
+  return "Evidence";
+}
+
+function requirementRows(requirements) {
+  const rows = requirements
+    .split("\n")
+    .map((line) => clean(line).replace(/^-\s*/, ""))
+    .filter(Boolean)
+    .map((line) => ({
+      type: classifyRequirement(line),
+      evidence: line,
+      note: ""
+    }));
+
+  if (rows.length) return rows;
+  return [
+    {
+      type: "Underwriter review",
+      evidence: "Refer to manual rating tables and obtain medical evidence as indicated.",
+      note: ""
+    }
+  ];
+}
+
 function parseDisplay(record) {
   return {
     diagnosisName: record.diagnosis_name || record.target_topic || record.alias_name || record.display_name,
@@ -165,7 +195,12 @@ function normalizeForApp(record) {
         notes: `Hannover Re Ascent option ${record.option_value}`
       }
     ],
-    raw_sections: record.raw_sections || {},
+    raw_sections: {
+      ...(record.raw_sections || {}),
+      requirements_table: {
+        rows: requirementRows(requirements)
+      }
+    },
     updated_by: "HumanExtractChrome",
     last_updated: record.extracted_at,
     private_meta: {
@@ -183,8 +218,8 @@ function normalizeForApp(record) {
 
 const diagnoses = source.records.map(normalizeForApp);
 const output = {
-  appVersion: "0.1.3",
-  schemaVersion: "2026-05-28.3-private",
+  appVersion: "0.1.4",
+  schemaVersion: "2026-05-28.4-private",
   exportedAt: new Date().toISOString(),
   diagnoses
 };
